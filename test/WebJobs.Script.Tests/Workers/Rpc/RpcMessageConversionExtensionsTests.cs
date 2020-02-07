@@ -5,8 +5,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.Tasks;
 using Google.Protobuf;
 using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
@@ -27,7 +29,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         [Theory]
         [InlineData("application/x-www-form-urlencoded’", "say=Hi&to=Mom", true)]
         [InlineData("application/x-www-form-urlencoded’", "say=Hi&to=Mom", false)]
-        public void HttpObjects_StringBody(string expectedContentType, object body, bool rcpHttpBodyOnly)
+        public async Task HttpObjects_StringBody(string expectedContentType, object body, bool rcpHttpBodyOnly)
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -43,7 +45,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
             headers.Add("content-type", expectedContentType);
             HttpRequest request = HttpTestHelpers.CreateHttpRequest("GET", "http://localhost/api/httptrigger-scenarios", headers, body);
 
-            var rpcRequestObject = request.ToRpc(logger, capabilities);
+            var rpcRequestObject = await request.ToRpc(logger, capabilities);
             Assert.Equal(body.ToString(), rpcRequestObject.Http.Body.String);
             if (rcpHttpBodyOnly)
             {
@@ -64,7 +66,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         [Theory]
         [InlineData("application/json", "{\"name\":\"John\"}", true)]
         [InlineData("application/json", "{\"name\":\"John\"}", false)]
-        public void HttpObjects_JsonBody(string expectedContentType, string body, bool rcpHttpBodyOnly)
+        public async Task HttpObjects_JsonBody(string expectedContentType, string body, bool rcpHttpBodyOnly)
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -80,7 +82,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
             headers.Add("content-type", expectedContentType);
             HttpRequest request = HttpTestHelpers.CreateHttpRequest("GET", "http://localhost/api/httptrigger-scenarios", headers, body);
 
-            var rpcRequestObject = request.ToRpc(logger, capabilities);
+            var rpcRequestObject = await request.ToRpc(logger, capabilities);
             if (rcpHttpBodyOnly)
             {
                 Assert.Equal(null, rpcRequestObject.Http.RawBody);
@@ -102,7 +104,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         [InlineData("application/octet-stream", false)]
         [InlineData("multipart/form-data; boundary=----WebKitFormBoundaryTYtz7wze2XXrH26B", true)]
         [InlineData("multipart/form-data; boundary=----WebKitFormBoundaryTYtz7wze2XXrH26B", false)]
-        public void HttpTrigger_Post_ByteArray(string expectedContentType, bool rcpHttpBodyOnly)
+        public async Task HttpTrigger_Post_ByteArray(string expectedContentType, bool rcpHttpBodyOnly)
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -120,7 +122,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
 
             HttpRequest request = HttpTestHelpers.CreateHttpRequest("POST", "http://localhost/api/httptrigger-scenarios", headers, body);
 
-            var rpcRequestObject = request.ToRpc(logger, capabilities);
+            var rpcRequestObject = await request.ToRpc(logger, capabilities);
             if (rcpHttpBodyOnly)
             {
                 Assert.Equal(null, rpcRequestObject.Http.RawBody);
@@ -141,14 +143,14 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         [InlineData("say=Hi&to=Mom", new string[] { "say", "to" }, new string[] { "Hi", "Mom" })]
         [InlineData("say=Hi", new string[] { "say" }, new string[] { "Hi" })]
         [InlineData("say=Hi&to=", new string[] { "say" }, new string[] { "Hi" })] // Removes empty value query params
-        public void HttpObjects_Query(string queryString, string[] expectedKeys, string[] expectedValues)
+        public async Task HttpObjects_Query(string queryString, string[] expectedKeys, string[] expectedValues)
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
 
             HttpRequest request = HttpTestHelpers.CreateHttpRequest("GET", $"http://localhost/api/httptrigger-scenarios?{queryString}");
 
-            var rpcRequestObject = request.ToRpc(logger, capabilities);
+            var rpcRequestObject = await request.ToRpc(logger, capabilities);
             // Same number of expected key value pairs
             Assert.Equal(rpcRequestObject.Http.Query.Count, expectedKeys.Length);
             Assert.Equal(rpcRequestObject.Http.Query.Count, expectedValues.Length);
@@ -287,7 +289,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void HttpObjects_ClaimsPrincipal()
+        public async Task HttpObjects_ClaimsPrincipal()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -304,7 +306,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
 
             request.HttpContext.User = new ClaimsPrincipal(claimsIdentities);
 
-            var rpcRequestObject = request.ToRpc(logger, capabilities);
+            var rpcRequestObject = await request.ToRpc(logger, capabilities);
 
             var identities = request.HttpContext.User.Identities.ToList();
             var rpcIdentities = rpcRequestObject.Http.Identities.ToList();
@@ -356,7 +358,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         [InlineData("image/png", "true")]
         [InlineData("application/octet-stream", null)]
         [InlineData("image/png", null)]
-        public void HttpObjects_RawBodyBytes_Image_Length(string contentType, string rawBytesEnabled)
+        public async Task HttpObjects_RawBodyBytes_Image_Length(string contentType, string rawBytesEnabled)
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -379,7 +381,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
             headers.Add("content-type", contentType);
             HttpRequest request = HttpTestHelpers.CreateHttpRequest("GET", "http://localhost/api/httptrigger-scenarios", headers, imageBytes);
 
-            var rpcRequestObject = request.ToRpc(logger, capabilities);
+            var rpcRequestObject = await request.ToRpc(logger, capabilities);
             if (string.IsNullOrEmpty(rawBytesEnabled))
             {
                 Assert.Empty(rpcRequestObject.Http.RawBody.Bytes);
@@ -402,7 +404,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Collection_String_With_Capabilities_Value()
+        public async Task ToRpc_Collection_String_With_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -413,7 +415,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
 
             capabilities.UpdateCapabilities(addedCapabilities);
             string[] arrString = { "element1", "element_2" };
-            TypedData returned_typedata = arrString.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrString.ToRpc(logger, capabilities);
 
             TypedData typedData = new TypedData();
             CollectionString collectionString = new CollectionString();
@@ -431,13 +433,13 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Collection_String_Without_Capabilities_Value()
+        public async Task ToRpc_Collection_String_Without_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
 
             string[] arrString = { "element1", "element_2" };
-            TypedData returned_typedata = arrString.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrString.ToRpc(logger, capabilities);
 
             TypedData typedData = new TypedData();
             typedData.Json = JsonConvert.SerializeObject(arrString);
@@ -446,7 +448,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Collection_Long_With_Capabilities_Value()
+        public async Task ToRpc_Collection_Long_With_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -457,7 +459,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
 
             capabilities.UpdateCapabilities(addedCapabilities);
             long[] arrLong = { 1L, 2L };
-            TypedData returned_typedata = arrLong.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrLong.ToRpc(logger, capabilities);
 
             TypedData typedData = new TypedData();
             CollectionSInt64 collectionLong = new CollectionSInt64();
@@ -472,13 +474,13 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Collection_Long_Without_Capabilities_Value()
+        public async Task ToRpc_Collection_Long_Without_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
 
             long[] arrLong = { 1L, 2L };
-            TypedData returned_typedata = arrLong.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrLong.ToRpc(logger, capabilities);
 
             TypedData typedData = new TypedData();
             typedData.Json = JsonConvert.SerializeObject(arrLong);
@@ -487,7 +489,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Collection_Double_With_Capabilities_Value()
+        public async Task ToRpc_Collection_Double_With_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -498,7 +500,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
 
             capabilities.UpdateCapabilities(addedCapabilities);
             double[] arrDouble = { 1.1, 2.2 };
-            TypedData returned_typedata = arrDouble.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrDouble.ToRpc(logger, capabilities);
             TypedData typedData = new TypedData();
 
             CollectionDouble collectionDouble = new CollectionDouble();
@@ -513,13 +515,13 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Collection_Double_Without_Capabilities_Value()
+        public async Task ToRpc_Collection_Double_Without_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
 
             double[] arrDouble = { 1.1, 2.2 };
-            TypedData returned_typedata = arrDouble.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrDouble.ToRpc(logger, capabilities);
 
             TypedData typedData = new TypedData();
             typedData.Json = JsonConvert.SerializeObject(arrDouble);
@@ -528,7 +530,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Collection_Byte_With_Capabilities_Value()
+        public async Task ToRpc_Collection_Byte_With_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -543,7 +545,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
             arrBytes[0] = new byte[] { 22 };
             arrBytes[1] = new byte[] { 11 };
 
-            TypedData returned_typedata = arrBytes.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrBytes.ToRpc(logger, capabilities);
             TypedData typedData = new TypedData();
 
             CollectionBytes collectionBytes = new CollectionBytes();
@@ -561,7 +563,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Collection_Byte_Without_Capabilities_Value()
+        public async Task ToRpc_Collection_Byte_Without_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -570,7 +572,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
             arrByte[0] = new byte[] { 22 };
             arrByte[1] = new byte[] { 11 };
 
-            TypedData returned_typedata = arrByte.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrByte.ToRpc(logger, capabilities);
 
             TypedData typedData = new TypedData();
             typedData.Json = JsonConvert.SerializeObject(arrByte);
@@ -579,14 +581,14 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Bytes_Without_Capabilities_Value()
+        public async Task ToRpc_Bytes_Without_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
 
             byte[] arrByte = Encoding.Default.GetBytes("HellowWorld");
 
-            TypedData returned_typedata = arrByte.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrByte.ToRpc(logger, capabilities);
 
             TypedData typedData = new TypedData();
             typedData.Bytes = ByteString.CopyFrom(arrByte);
@@ -595,7 +597,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
         }
 
         [Fact]
-        public void ToRpc_Bytes_With_Capabilities_Value()
+        public async Task ToRpc_Bytes_With_Capabilities_Value()
         {
             var logger = MockNullLoggerFactory.CreateLogger();
             var capabilities = new Capabilities(logger);
@@ -606,7 +608,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Workers.Rpc
             capabilities.UpdateCapabilities(addedCapabilities);
             byte[] arrByte = Encoding.Default.GetBytes("HellowWorld");
 
-            TypedData returned_typedata = arrByte.ToRpc(logger, capabilities);
+            TypedData returned_typedata = await arrByte.ToRpc(logger, capabilities);
 
             TypedData typedData = new TypedData();
             typedData.Bytes = ByteString.CopyFrom(arrByte);

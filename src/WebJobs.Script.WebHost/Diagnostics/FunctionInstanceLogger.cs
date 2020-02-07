@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -26,6 +27,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
         private readonly ILogWriter _writer;
         private readonly IMetricsLogger _metrics;
         private readonly IFunctionMetadataManager _metadataManager;
+        private ConcurrentDictionary<string, FunctionMetadata> _functionMetadataMap = new ConcurrentDictionary<string, FunctionMetadata>(StringComparer.OrdinalIgnoreCase);
 
         public FunctionInstanceLogger(
             IFunctionMetadataManager metadataManager,
@@ -82,33 +84,32 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
 
         public async Task AddAsync(FunctionInstanceLogEntry item, CancellationToken cancellationToken = default(CancellationToken))
         {
-            FunctionInstanceMonitor state;
-            item.Properties.TryGetValue(Key, out state);
+            FunctionInstanceMonitor monitor;
+            item.Properties.TryGetValue(Key, out monitor);
 
             if (item.EndTime.HasValue)
             {
-                // Completed
+                // Function Completed
                 bool success = item.ErrorDetails == null;
-                state.End(success);
+                monitor.End(success);
             }
             else
             {
-                // Started
-                if (state == null)
+                // Function Started
+                if (monitor == null)
                 {
-                    string shortName = Utility.GetFunctionShortName(item.FunctionName);
-                    FunctionMetadata function = GetFunctionMetadata(shortName);
-
-                    if (function == null)
+                    var function = GetFunctionMetadata(item.LogName);
+                    if (function != null)
+                    {
+                        monitor = new FunctionInstanceMonitor(function, _metrics, item.FunctionInstanceId);
+                        item.Properties[Key] = monitor;
+                        monitor.Start();
+                    }
+                    else
                     {
                         // This exception will cause the function to not get executed.
-                        throw new InvalidOperationException($"Missing function.json for '{shortName}'.");
+                        throw new InvalidOperationException($"Missing function.json for '{item.LogName}'.");
                     }
-                    state = new FunctionInstanceMonitor(function, _metrics, item.FunctionInstanceId);
-
-                    item.Properties[Key] = state;
-
-                    state.Start();
                 }
             }
 
@@ -117,7 +118,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
                 await _writer.AddAsync(new FunctionInstanceLogItem
                 {
                     FunctionInstanceId = item.FunctionInstanceId,
-                    FunctionName = Utility.GetFunctionShortName(item.FunctionName),
+                    FunctionName = item.LogName,
                     StartTime = item.StartTime,
                     EndTime = item.EndTime,
                     TriggerReason = item.TriggerReason,
@@ -131,12 +132,11 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
 
         private FunctionMetadata GetFunctionMetadata(string functionName)
         {
-            FunctionMetadata GetMetadataFromCollection(IEnumerable<FunctionMetadata> functions)
+            return _functionMetadataMap.GetOrAdd(functionName, s =>
             {
-                return functions.FirstOrDefault(p => Utility.FunctionNamesMatch(p.Name, functionName));
-            }
-
-            return GetMetadataFromCollection(_metadataManager.GetFunctionMetadata());
+                var functions = _metadataManager.GetFunctionMetadata();
+                return functions.FirstOrDefault(p => Utility.FunctionNamesMatch(p.Name, s));
+            });
         }
 
         public Task FlushAsync(CancellationToken cancellationToken = default(CancellationToken))
@@ -145,13 +145,13 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
             {
                 return Task.CompletedTask;
             }
+
             return _writer.FlushAsync();
         }
 
         public static void OnException(Exception exception, ILogger logger)
         {
-            string errorString = $"Error writing logs to table storage: {exception.ToString()}";
-            logger.LogError(errorString, exception);
+            logger.LogError($"Error writing logs to table storage: {exception.ToString()}", exception);
         }
     }
 }

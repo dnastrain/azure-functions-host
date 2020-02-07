@@ -7,6 +7,7 @@ using Microsoft.Azure.WebJobs.Logging;
 using Microsoft.Azure.WebJobs.Script.WebHost;
 using Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.WebJobs.Script.Tests;
 using Moq;
 using Newtonsoft.Json.Linq;
@@ -41,7 +42,8 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Eventing
             var loggerFactory = new LoggerFactory();
             loggerFactory.AddProvider(loggerProvider);
             _hostNameProvider = new HostNameProvider(_environment);
-            _logger = new AzureMonitorDiagnosticLogger(_category, _hostInstanceId, _mockEventGenerator.Object, _environment, new LoggerExternalScopeProvider(), _hostNameProvider);
+            var options = new OptionsWrapper<ScriptJobHostOptions>(new ScriptJobHostOptions());
+            _logger = new AzureMonitorDiagnosticLogger(options, _category, _hostInstanceId, _mockEventGenerator.Object, _environment, new LoggerExternalScopeProvider(), _hostNameProvider);
         }
 
         [Fact]
@@ -194,7 +196,8 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Eventing
             _environment.SetEnvironmentVariable(EnvironmentSettingNames.AzureWebsiteHostName, null);
 
             // Recreate the logger was we cache the site name in the constructor
-            ILogger logger = new AzureMonitorDiagnosticLogger(_category, _hostInstanceId, _mockEventGenerator.Object, _environment, new LoggerExternalScopeProvider(), _hostNameProvider);
+            var options = new OptionsWrapper<ScriptJobHostOptions>(new ScriptJobHostOptions());
+            ILogger logger = new AzureMonitorDiagnosticLogger(options, _category, _hostInstanceId, _mockEventGenerator.Object, _environment, new LoggerExternalScopeProvider(), _hostNameProvider);
 
             logger.LogInformation(message);
 

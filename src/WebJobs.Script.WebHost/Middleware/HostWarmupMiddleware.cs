@@ -2,10 +2,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -79,6 +76,11 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Middleware
                 ((environment.IsAppService() && request.IsAppServiceInternalRequest(environment)) || environment.IsLinuxConsumption()) &&
                 (request.Path.StartsWithSegments(new PathString($"/api/{WarmUpConstants.FunctionName}")) ||
                 request.Path.StartsWithSegments(new PathString($"/api/{WarmUpConstants.AlternateRoute}")));
+        }
+
+        public static bool ShouldRegister(IEnvironment environment)
+        {
+            return environment.IsAppService() || environment.IsLinuxConsumption();
         }
     }
 }

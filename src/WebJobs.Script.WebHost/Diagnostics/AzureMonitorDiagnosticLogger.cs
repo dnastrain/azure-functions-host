@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using Microsoft.Azure.WebJobs.Logging;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
 namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
@@ -19,14 +20,15 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
         private readonly string _regionName;
         private readonly string _category;
         private readonly string _hostInstanceId;
-
+        private readonly IOptions<ScriptJobHostOptions> _options;
         private readonly HostNameProvider _hostNameProvider;
         private readonly IEventGenerator _eventGenerator;
         private readonly IEnvironment _environment;
         private readonly IExternalScopeProvider _scopeProvider;
 
-        public AzureMonitorDiagnosticLogger(string category, string hostInstanceId, IEventGenerator eventGenerator, IEnvironment environment, IExternalScopeProvider scopeProvider, HostNameProvider hostNameProvider)
+        public AzureMonitorDiagnosticLogger(IOptions<ScriptJobHostOptions> options, string category, string hostInstanceId, IEventGenerator eventGenerator, IEnvironment environment, IExternalScopeProvider scopeProvider, HostNameProvider hostNameProvider)
         {
+            _options = options ?? throw new ArgumentNullException(nameof(options));
             _category = category ?? throw new ArgumentNullException(nameof(category));
             _hostInstanceId = hostInstanceId ?? throw new ArgumentNullException(nameof(hostInstanceId));
             _eventGenerator = eventGenerator ?? throw new ArgumentNullException(nameof(eventGenerator));
@@ -42,7 +44,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
         public bool IsEnabled(LogLevel logLevel)
         {
             // We want to instantiate this Logger in placeholder mode to warm it up, but do not want to log anything.
-            return !string.IsNullOrEmpty(_hostNameProvider.Value) && !_environment.IsPlaceholderModeEnabled();
+            return _options.Value.AzureMonitorEnabled && !string.IsNullOrEmpty(_hostNameProvider.Value) && !_environment.IsPlaceholderModeEnabled();
         }
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)

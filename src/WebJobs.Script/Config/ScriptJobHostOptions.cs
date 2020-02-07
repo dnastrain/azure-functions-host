@@ -20,6 +20,7 @@ namespace Microsoft.Azure.WebJobs.Script
             FileLoggingMode = FileLoggingMode.Never;
             InstanceId = Guid.NewGuid().ToString();
             WatchDirectories = new Collection<string>();
+            AzureMonitorEnabled = true;
         }
 
         /// <summary>
@@ -77,6 +78,11 @@ namespace Microsoft.Azure.WebJobs.Script
         /// <see cref="RootLogPath"/>.
         /// </summary>
         public FileLoggingMode FileLoggingMode { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether Azure Monitor is enabled.
+        /// </summary>
+        public bool AzureMonitorEnabled { get; set; }
 
         /// <summary>
         /// Gets or sets the list of functions that should be run. This list can be used to filter

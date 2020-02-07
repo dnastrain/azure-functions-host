@@ -15,31 +15,37 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Middleware
         private readonly RequestDelegate _next;
         private readonly ILogger<HostAvailabilityCheckMiddleware> _logger;
         private readonly IOptionsMonitor<ScriptApplicationHostOptions> _applicationHostOptions;
+        private readonly IScriptHostManager _scriptHostManager;
 
-        public HostAvailabilityCheckMiddleware(RequestDelegate next, ILoggerFactory loggerFactory, IOptionsMonitor<ScriptApplicationHostOptions> applicationHostOptions)
+        public HostAvailabilityCheckMiddleware(RequestDelegate next, ILoggerFactory loggerFactory, IOptionsMonitor<ScriptApplicationHostOptions> applicationHostOptions, IScriptHostManager scriptHostManager)
         {
             _next = next;
             _logger = loggerFactory.CreateLogger<HostAvailabilityCheckMiddleware>();
             _applicationHostOptions = applicationHostOptions;
+            _scriptHostManager = scriptHostManager;
         }
 
-        public async Task Invoke(HttpContext httpContext, IScriptHostManager scriptHostManager)
+        public async Task Invoke(HttpContext httpContext)
         {
-            if (scriptHostManager.State != ScriptHostState.Offline)
+            if (_scriptHostManager.State != ScriptHostState.Offline)
             {
                 using (Logger.VerifyingHostAvailabilityScope(_logger, httpContext.TraceIdentifier))
                 {
                     Logger.InitiatingHostAvailabilityCheck(_logger);
 
-                    bool hostReady = await scriptHostManager.DelayUntilHostReady();
+                    bool hostReady = _scriptHostManager.CanInvoke();
                     if (!hostReady)
                     {
-                        Logger.HostUnavailableAfterCheck(_logger);
+                        hostReady = await _scriptHostManager.DelayUntilHostReady();
+                        if (!hostReady)
+                        {
+                            Logger.HostUnavailableAfterCheck(_logger);
 
-                        httpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-                        await httpContext.Response.WriteAsync("Function host is not running.");
+                            httpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                            await httpContext.Response.WriteAsync("Function host is not running.");
 
-                        return;
+                            return;
+                        }
                     }
 
                     Logger.HostAvailabilityCheckSucceeded(_logger);

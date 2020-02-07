@@ -46,6 +46,17 @@ namespace Microsoft.Azure.WebJobs.Script.Configuration
                 {
                     options.FileLoggingMode = fileLoggingMode.Value;
                 }
+
+                var azureMonitorEnabled = jobHostSection.GetSection(ConfigurationSectionNames.Logging)
+                    ?.GetValue<bool?>("azureMonitorEnabled");
+                if (azureMonitorEnabled != null)
+                {
+                    options.AzureMonitorEnabled = azureMonitorEnabled.Value;
+                }
+                else
+                {
+                    options.AzureMonitorEnabled = true;
+                }
             }
 
             // FunctionTimeout

@@ -13,11 +13,13 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
         private readonly IEventGenerator _eventGenerator;
         private readonly IEnvironment _environment;
         private readonly HostNameProvider _hostNameProvider;
+        private readonly IOptions<ScriptJobHostOptions> _options;
         private IExternalScopeProvider _scopeProvider;
 
         public AzureMonitorDiagnosticLoggerProvider(IOptions<ScriptJobHostOptions> scriptOptions, IEventGenerator eventGenerator, IEnvironment environment, HostNameProvider hostNameProvider)
             : this(scriptOptions.Value.InstanceId, eventGenerator, environment, hostNameProvider)
         {
+            _options = scriptOptions;
         }
 
         public AzureMonitorDiagnosticLoggerProvider(string hostInstanceId, IEventGenerator eventGenerator, IEnvironment environment, HostNameProvider hostNameProvider)
@@ -30,7 +32,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics
 
         public ILogger CreateLogger(string categoryName)
         {
-            return new AzureMonitorDiagnosticLogger(categoryName, _hostInstanceId, _eventGenerator, _environment, _scopeProvider, _hostNameProvider);
+            return new AzureMonitorDiagnosticLogger(_options, categoryName, _hostInstanceId, _eventGenerator, _environment, _scopeProvider, _hostNameProvider);
         }
 
         public void Dispose()

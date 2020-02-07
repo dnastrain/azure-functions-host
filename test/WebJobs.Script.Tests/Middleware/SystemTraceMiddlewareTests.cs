@@ -55,6 +55,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Handlers
 
             var headers = new HeaderDictionary();
             headers.Add(ScriptConstants.AntaresLogIdHeaderName, new StringValues(requestId));
+            headers.Add("User-Agent", new StringValues("TestAgent"));
             requestFeature.Headers = headers;
 
             var claims = new List<Claim>
@@ -78,10 +79,11 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Handlers
             Assert.Equal("Executing HTTP request", message);
             var details = log.FormattedMessage.Substring(idx + 1).Trim();
             var jo = JObject.Parse(details);
-            Assert.Equal(3, jo.Count);
+            Assert.Equal(4, jo.Count);
             Assert.Equal(requestId, jo["requestId"]);
             Assert.Equal("GET", jo["method"]);
             Assert.Equal("/api/testfunc", jo["uri"]);
+            Assert.Equal("TestAgent", jo["userAgent"]);
 
             // validate executed trace
             log = logs[1];
@@ -92,12 +94,13 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.Handlers
             Assert.Equal("Executed HTTP request", message);
             details = log.FormattedMessage.Substring(idx + 1).Trim();
             jo = JObject.Parse(details);
-            Assert.Equal(6, jo.Count);
+            Assert.Equal(7, jo.Count);
             Assert.Equal(requestId, jo["requestId"]);
             Assert.Equal("GET", jo["method"]);
             Assert.Equal("/api/testfunc", jo["uri"]);
             Assert.Equal(200, jo["status"]);
             var duration = (long)jo["duration"];
+            Assert.Equal("TestAgent", jo["userAgent"]);
             Assert.True(duration > 0);
 
             var authentication = (JArray)jo["identities"];
